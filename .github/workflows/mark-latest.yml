@@ -1,0 +1,35 @@
+# 새 앱 릴리스를 자동으로 Latest(정식 최신)로 만든다.
+# 랜딩 웹 페이지의 APK 다운로드 버튼은 releases/latest/download/pawsdream.apk 를 받으므로,
+# 새 릴리스가 미리보기(pre-release)로 올라와도 여기서 정식 최신으로 바꾼다.
+# pawsdream.apk 가 붙지 않은 릴리스는 건드리지 않는다 (버튼 링크가 깨지지 않게).
+name: 새 릴리스를 Latest 로
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Latest 로 만들 릴리스 태그 (예 v0.4.3)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  mark-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pawsdream.apk 가 있는 릴리스를 Latest 로
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx 'pawsdream.apk'; then
+            echo "$TAG 에 pawsdream.apk 가 없어 건너뜁니다"
+            exit 0
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+          echo "$TAG 를 Latest 로 바꿨습니다"
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 3
